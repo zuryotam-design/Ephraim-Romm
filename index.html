@@ -6,52 +6,110 @@
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Ephraim Romm | Engineer of Survival</title>
+    
+    <!-- Fix image paths BEFORE React loads -->
+    <script>
+      (function() {
+        const basePath = '/Ephraim-Romm';
+        let cssFixed = false;
+        
+        // Rewrite URLs in CSS
+        const fixCSS = () => {
+          if (cssFixed) return;
+          cssFixed = true;
+          
+          for (let i = 0; i < document.styleSheets.length; i++) {
+            try {
+              const sheet = document.styleSheets[i];
+              const rules = sheet.cssRules || sheet.rules;
+              for (let j = 0; j < rules.length; j++) {
+                const rule = rules[j];
+                if (rule.style && rule.style.backgroundImage) {
+                  rule.style.backgroundImage = rule.style.backgroundImage.replace(/url\(['"]?\/images\//g, `url('${basePath}/images/`);
+                }
+              }
+            } catch (e) {
+              // Cross-origin or protected stylesheets - ignore
+            }
+          }
+        };
+        
+        // Intercept element image assignments
+        const imageHandler = (target) => {
+          try {
+            let src = target.src || target.getAttribute('src');
+            if (src && typeof src === 'string' && src.includes('/images/') && !src.includes(basePath)) {
+              src = src.replace(/\/images\//, basePath + '/images/');
+              target.src = src;
+              target.setAttribute('src', src);
+            }
+            
+            // Also check background-image style
+            const bgImage = window.getComputedStyle(target).backgroundImage;
+            if (bgImage && bgImage.includes('/images/') && !bgImage.includes(basePath)) {
+              target.style.backgroundImage = bgImage.replace(/\/images\//g, basePath + '/images/');
+            }
+          } catch (e) {}
+        };
+        
+        // Rewrite all existing images
+        const fixImages = () => {
+          document.querySelectorAll('img').forEach(imageHandler);
+          document.querySelectorAll('[style*="background"]').forEach((el) => {
+            const bgImg = el.getAttribute('style');
+            if (bgImg && bgImg.includes('/images/') && !bgImg.includes(basePath)) {
+              el.setAttribute('style', bgImg.replace(/\/images\//g, basePath + '/images/'));
+            }
+          });
+          fixCSS();
+        };
+        
+        // Run on DOM ready
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', fixImages);
+        } else {
+          fixImages();
+        }
+        
+        // Watch for dynamically added images
+        const observer = new MutationObserver((mutations) => {
+          mutations.forEach((mutation) => {
+            if (mutation.type === 'childList') {
+              mutation.addedNodes.forEach((node) => {
+                if (node.nodeType === 1) {
+                  if (node.tagName === 'IMG' || node.tagName === 'DIV' || node.tagName === 'SECTION' || node.tagName === 'ARTICLE') {
+                    imageHandler(node);
+                  }
+                  node.querySelectorAll?.('img, [style*="background"]').forEach(imageHandler);
+                }
+              });
+            } else if (mutation.type === 'attributes') {
+              if (mutation.target.tagName === 'IMG' && mutation.attributeName === 'src') {
+                imageHandler(mutation.target);
+              } else if ((mutation.attributeName === 'style') && mutation.target.getAttribute('style')?.includes('background')) {
+                imageHandler(mutation.target);
+              }
+            }
+          });
+          fixCSS();
+        });
+        
+        observer.observe(document.documentElement, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          attributeFilter: ['src', 'style']
+        });
+        
+        // Also fix on window load
+        window.addEventListener('load', fixImages);
+      })();
+    </script>
+    
     <script type="module" crossorigin src="assets/index-CbeEnKWz.js"></script>
     <link rel="stylesheet" crossorigin href="assets/index-BTJ_6u2r.css">
   </head>
   <body>
     <div id="root"></div>
-    <script>
-      // Fix image paths for GitHub Pages subdirectory deployment
-      const basePath = '/Ephraim-Romm';
-      const observer = new MutationObserver((mutations) => {
-        mutations.forEach((mutation) => {
-          if (mutation.type === 'childList') {
-            mutation.addedNodes.forEach((node) => {
-              if (node.nodeType === 1) { // Element node
-                // Fix this node if it's an image
-                if (node.tagName === 'IMG' && node.src && node.src.includes('/images/')) {
-                  if (!node.src.includes(basePath)) {
-                    node.src = node.src.replace(/\/images\//, basePath + '/images/');
-                  }
-                }
-                // Fix all child images
-                const images = node.querySelectorAll?.('img') || [];
-                images.forEach((img) => {
-                  if (img.src && img.src.includes('/images/') && !img.src.includes(basePath)) {
-                    img.src = img.src.replace(/\/images\//, basePath + '/images/');
-                  }
-                });
-              }
-            });
-          }
-        });
-      });
-      
-      // Start observing the document for changes
-      observer.observe(document.body, {
-        childList: true,
-        subtree: true
-      });
-      
-      // Also fix any images that might load after the script
-      window.addEventListener('load', () => {
-        document.querySelectorAll('img').forEach((img) => {
-          if (img.src && img.src.includes('/images/') && !img.src.includes(basePath)) {
-            img.src = img.src.replace(/\/images\//, basePath + '/images/');
-          }
-        });
-      });
-    </script>
   </body>
 </html>
