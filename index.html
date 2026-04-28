@@ -11,43 +11,41 @@
     <script>
       (function() {
         const basePath = '/Ephraim-Romm';
-        let cssFixed = false;
         
-        // Rewrite URLs in CSS
-        const fixCSS = () => {
-          if (cssFixed) return;
-          cssFixed = true;
-          
-          for (let i = 0; i < document.styleSheets.length; i++) {
-            try {
-              const sheet = document.styleSheets[i];
-              const rules = sheet.cssRules || sheet.rules;
-              for (let j = 0; j < rules.length; j++) {
-                const rule = rules[j];
-                if (rule.style && rule.style.backgroundImage) {
-                  rule.style.backgroundImage = rule.style.backgroundImage.replace(/url\(['"]?\/images\//g, `url('${basePath}/images/`);
-                }
-              }
-            } catch (e) {
-              // Cross-origin or protected stylesheets - ignore
-            }
+        // Store original fetch
+        const originalFetch = window.fetch;
+        
+        // Intercept fetch calls to rewrite image paths
+        window.fetch = function(...args) {
+          let url = args[0];
+          if (url && typeof url === 'string' && url.includes('/images/') && !url.includes(basePath)) {
+            url = url.replace(/\/images\//, basePath + '/images/');
+            args[0] = url;
           }
+          return originalFetch.apply(this, args);
         };
         
-        // Intercept element image assignments
+        // Intercept XMLHttpRequest
+        const originalXHROpen = XMLHttpRequest.prototype.open;
+        XMLHttpRequest.prototype.open = function(method, url) {
+          if (url && typeof url === 'string' && url.includes('/images/') && !url.includes(basePath)) {
+            url = url.replace(/\/images\//, basePath + '/images/');
+          }
+          return originalXHROpen.apply(this, arguments);
+        };
+        
+        // Fix element src attributes
         const imageHandler = (target) => {
           try {
             let src = target.src || target.getAttribute('src');
             if (src && typeof src === 'string' && src.includes('/images/') && !src.includes(basePath)) {
               src = src.replace(/\/images\//, basePath + '/images/');
               target.src = src;
-              target.setAttribute('src', src);
             }
             
-            // Also check background-image style
-            const bgImage = window.getComputedStyle(target).backgroundImage;
-            if (bgImage && bgImage.includes('/images/') && !bgImage.includes(basePath)) {
-              target.style.backgroundImage = bgImage.replace(/\/images\//g, basePath + '/images/');
+            // Also fix style background images
+            if (target.style && target.style.backgroundImage) {
+              target.style.backgroundImage = target.style.backgroundImage.replace(/\/images\//g, basePath + '/images/');
             }
           } catch (e) {}
         };
@@ -56,52 +54,48 @@
         const fixImages = () => {
           document.querySelectorAll('img').forEach(imageHandler);
           document.querySelectorAll('[style*="background"]').forEach((el) => {
-            const bgImg = el.getAttribute('style');
-            if (bgImg && bgImg.includes('/images/') && !bgImg.includes(basePath)) {
-              el.setAttribute('style', bgImg.replace(/\/images\//g, basePath + '/images/'));
+            const style = el.getAttribute('style') || '';
+            if (style.includes('/images/') && !style.includes(basePath)) {
+              el.setAttribute('style', style.replace(/\/images\//g, basePath + '/images/'));
             }
           });
-          fixCSS();
         };
         
         // Run on DOM ready
         if (document.readyState === 'loading') {
           document.addEventListener('DOMContentLoaded', fixImages);
-        } else {
-          fixImages();
         }
         
-        // Watch for dynamically added images
+        // Watch from document start
+        fixImages();
+        
+        // Watch for dynamically added images  
         const observer = new MutationObserver((mutations) => {
           mutations.forEach((mutation) => {
             if (mutation.type === 'childList') {
               mutation.addedNodes.forEach((node) => {
                 if (node.nodeType === 1) {
-                  if (node.tagName === 'IMG' || node.tagName === 'DIV' || node.tagName === 'SECTION' || node.tagName === 'ARTICLE') {
+                  if (node.tagName === 'IMG') {
                     imageHandler(node);
                   }
                   node.querySelectorAll?.('img, [style*="background"]').forEach(imageHandler);
                 }
               });
-            } else if (mutation.type === 'attributes') {
-              if (mutation.target.tagName === 'IMG' && mutation.attributeName === 'src') {
-                imageHandler(mutation.target);
-              } else if ((mutation.attributeName === 'style') && mutation.target.getAttribute('style')?.includes('background')) {
+            } else if (mutation.type === 'attributes' && mutation.target.tagName === 'IMG') {
+              if (mutation.attributeName === 'src') {
                 imageHandler(mutation.target);
               }
             }
           });
-          fixCSS();
         });
         
         observer.observe(document.documentElement, {
           childList: true,
           subtree: true,
           attributes: true,
-          attributeFilter: ['src', 'style']
+          attributeFilter: ['src']
         });
         
-        // Also fix on window load
         window.addEventListener('load', fixImages);
       })();
     </script>
