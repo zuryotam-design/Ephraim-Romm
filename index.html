@@ -11,5 +11,47 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Fix image paths for GitHub Pages subdirectory deployment
+      const basePath = '/Ephraim-Romm';
+      const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          if (mutation.type === 'childList') {
+            mutation.addedNodes.forEach((node) => {
+              if (node.nodeType === 1) { // Element node
+                // Fix this node if it's an image
+                if (node.tagName === 'IMG' && node.src && node.src.includes('/images/')) {
+                  if (!node.src.includes(basePath)) {
+                    node.src = node.src.replace(/\/images\//, basePath + '/images/');
+                  }
+                }
+                // Fix all child images
+                const images = node.querySelectorAll?.('img') || [];
+                images.forEach((img) => {
+                  if (img.src && img.src.includes('/images/') && !img.src.includes(basePath)) {
+                    img.src = img.src.replace(/\/images\//, basePath + '/images/');
+                  }
+                });
+              }
+            });
+          }
+        });
+      });
+      
+      // Start observing the document for changes
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true
+      });
+      
+      // Also fix any images that might load after the script
+      window.addEventListener('load', () => {
+        document.querySelectorAll('img').forEach((img) => {
+          if (img.src && img.src.includes('/images/') && !img.src.includes(basePath)) {
+            img.src = img.src.replace(/\/images\//, basePath + '/images/');
+          }
+        });
+      });
+    </script>
   </body>
 </html>
